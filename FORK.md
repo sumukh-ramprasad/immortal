@@ -128,6 +128,9 @@ All three should show `com.immortal.launcher.debug`. If the home screen check do
   DREAM_SERVICE=com.immortal.launcher.debug/com.immortal.launcher.PhotoDreamService
   ```
 
+  The script's device-admin removal step will still fail and print a warning. Deactivate the
+  admin on the Portal as in step 2 above, then `adb uninstall com.immortal.launcher.debug`.
+
 ## Updating the patched build
 
 Every CI build signs the APK with a new debug key, so a newer build won't install over an older
