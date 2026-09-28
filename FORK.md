@@ -118,8 +118,15 @@ All three should show `com.immortal.launcher.debug`. If the home screen check do
 - **No automatic updates.** New upstream releases don't reach the patched build. To get them,
   merge `upstream/main` into this fork and rebuild.
 - **The kit's restore script won't work as-is.** `provision.sh` restore targets
-  `com.immortal.launcher`. To go back to Meta's stock launcher, set `PKG`, `HOME_ACTIVITY` and
-  `DREAM_SERVICE` in `provisioning/config.env` to the `.debug` package first.
+  `com.immortal.launcher`. To go back to Meta's stock launcher, first set these in
+  `provisioning/config.env`. Use full class names: the short `/.Name` form would add `.debug` to
+  the class too.
+
+  ```sh
+  PKG=com.immortal.launcher.debug
+  HOME_ACTIVITY=com.immortal.launcher.debug/com.immortal.launcher.HomeActivity
+  DREAM_SERVICE=com.immortal.launcher.debug/com.immortal.launcher.PhotoDreamService
+  ```
 
 ## Updating the patched build
 
