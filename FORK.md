@@ -31,7 +31,8 @@ at upstream. Using the patched build means pointing them at it instead.
 
 ## Install and switch over
 
-Connect the Portal over ADB, then:
+Connect the Portal over ADB, then run these in the macOS/Linux terminal. **On Windows, use the
+[PowerShell steps](#windows-powershell) instead.**
 
 ```sh
 # 1. Install
@@ -130,6 +131,105 @@ All three should show `com.immortal.launcher.debug`. If the home screen check do
 
   The script's device-admin removal step will still fail and print a warning. Deactivate the
   admin on the Portal as in step 2 above, then `adb uninstall com.immortal.launcher.debug`.
+
+## Windows (PowerShell)
+
+The commands above are for the macOS/Linux terminal. On Windows, open **PowerShell** (Start menu →
+type "PowerShell") and paste these instead. Paste them straight into the window: they don't need
+to be saved as a script, so the script execution policy doesn't matter.
+
+**0. Get adb and connect to the Portal**
+
+This uses `adb` if it's already installed. If not, it downloads Google's platform-tools into
+`C:\platform-tools`, the same package the setup kit uses.
+
+```powershell
+$adb = (Get-Command adb -ErrorAction SilentlyContinue).Source
+if (-not $adb) {
+  $adb = "C:\platform-tools\adb.exe"
+  if (-not (Test-Path $adb)) {
+    Invoke-WebRequest "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile "$env:TEMP\pt.zip"
+    Expand-Archive "$env:TEMP\pt.zip" -DestinationPath "C:\" -Force
+  }
+}
+& $adb devices
+```
+
+`adb devices` should list the Portal as `device`. If it says `unauthorized`, accept the prompt on
+the Portal and run `& $adb devices` again. If the list is empty over Wi-Fi, run
+`& $adb connect <portal-ip>:5555` first.
+
+If you close PowerShell, run step 0 again in the new window before continuing, because `$adb` is
+forgotten when the window closes.
+
+**1. Install and switch over**
+
+Change the path if the APK isn't in your Downloads folder.
+
+```powershell
+$P = "com.immortal.launcher.debug"
+& $adb install "$HOME\Downloads\immortal-smb-fixes-debug.apk"
+& $adb shell cmd package set-home-activity "$P/com.immortal.launcher.HomeActivity"
+& $adb shell settings put secure screensaver_components "$P/com.immortal.launcher.PhotoDreamService"
+& $adb shell dpm set-active-admin "$P/com.immortal.launcher.AdminReceiver"
+```
+
+Press Home on the Portal, enter the SMB share again, and turn shuffle on.
+
+**2. Give the patched build upstream's permissions**
+
+```powershell
+$P = "com.immortal.launcher.debug"
+foreach ($perm in "WRITE_SECURE_SETTINGS","READ_EXTERNAL_STORAGE","WRITE_EXTERNAL_STORAGE","READ_LOGS","CAMERA","RECORD_AUDIO") {
+  & $adb shell pm grant $P "android.permission.$perm"
+}
+foreach ($op in "SYSTEM_ALERT_WINDOW","REQUEST_INSTALL_PACKAGES","GET_USAGE_STATS") {
+  & $adb shell appops set $P $op allow
+}
+& $adb shell cmd notification allow_listener "$P/com.immortal.launcher.MediaNotificationListenerService"
+```
+
+**3. Remove upstream**
+
+```powershell
+& $adb shell dpm remove-active-admin com.immortal.launcher/.AdminReceiver
+```
+
+If that errors, deactivate the original **Immortal** on the Portal under **Settings → Security →
+Device admin apps**. Then:
+
+```powershell
+& $adb shell cmd notification disallow_listener com.immortal.launcher/com.immortal.launcher.MediaNotificationListenerService
+& $adb uninstall com.immortal.launcher
+```
+
+**4. Check**
+
+The quotes send each whole line to the Portal, so `grep` runs there. Windows doesn't have `grep`.
+
+```powershell
+& $adb shell "cmd package resolve-activity -a android.intent.action.MAIN -c android.intent.category.HOME | grep packageName"
+& $adb shell settings get secure screensaver_components
+& $adb shell "dumpsys device_policy | grep -i admin"
+```
+
+All three should show `com.immortal.launcher.debug`.
+
+**Switch back to upstream** (only while it's still installed)
+
+```powershell
+& $adb shell cmd package set-home-activity com.immortal.launcher/.HomeActivity
+& $adb shell settings put secure screensaver_components com.immortal.launcher/.PhotoDreamService
+```
+
+**Updating the patched build**
+
+```powershell
+& $adb uninstall com.immortal.launcher.debug
+& $adb install "$HOME\Downloads\immortal-smb-fixes-debug.apk"
+```
+
+Then run steps 1 and 2 again.
 
 ## Updating the patched build
 
