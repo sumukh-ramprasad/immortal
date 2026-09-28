@@ -41,6 +41,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.math.abs
+import kotlin.random.Random
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -441,7 +442,7 @@ class PhotoFrameController(
             if (paths.isNotEmpty()) {
               smbSource = src
               remoteUrls = if (source.shuffle) paths.shuffled() else paths
-              remoteFetch = { p -> src.openStream(p)?.use { decodeBoundedStream(it) } }
+              remoteFetch = { p -> src.openStream(p)?.use { decodeCorrectedStream(it) } }
               remoteMode = true
               remoteIndex = -1
               remoteFailStreak = 0
@@ -1132,6 +1133,10 @@ class PhotoFrameController(
       startWeb()
       return
     }
+    if (settings.shuffle && dir > 0 && localIndex == playlist.lastIndex) {
+      playlist = reshuffled(playlist, last = playlist[localIndex])
+      localIndex = -1
+    }
     gen++
     localIndex = ((localIndex + dir) % playlist.size + playlist.size) % playlist.size
     val item = playlist[localIndex]
@@ -1200,7 +1205,7 @@ class PhotoFrameController(
    * raw sensor buffer and record the intended rotation in an EXIF tag rather than
    * baking it into the pixels, so [BitmapFactory.decodeFile] alone shows portrait
    * shots sideways and some landscapes upside-down. The web feed is unaffected (its
-   * images carry no rotation flag), so this only matters for the folder source.
+   * images carry no rotation flag); SMB originals are, see [decodeCorrectedStream].
    *
    * Reading the tag is best-effort: a missing or unreadable EXIF block falls back to
    * the upright orientation so a quirky file still shows (just unrotated) instead of
@@ -1208,12 +1213,27 @@ class PhotoFrameController(
    */
   private fun decodeCorrected(path: String): Bitmap? {
     val bmp = decodeBoundedFile(path) ?: return null
-    val orientation =
-        runCatching {
-              ExifInterface(path)
-                  .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-            }
-            .getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+    return applyOrientation(bmp, readOrientation { ExifInterface(path) })
+  }
+
+  /**
+   * [decodeCorrected] for a stream (SMB). The bytes are buffered once so the same read serves
+   * both the decode and the EXIF lookup — SMB files are camera originals, not server-rotated
+   * previews, so they need the correction as much as the folder source does.
+   */
+  private fun decodeCorrectedStream(input: java.io.InputStream): Bitmap? {
+    val bytes = input.readBytes()
+    val bmp = decodeBoundedBytes(bytes) ?: return null
+    return applyOrientation(bmp, readOrientation { ExifInterface(bytes.inputStream()) })
+  }
+
+  private fun readOrientation(open: () -> ExifInterface): Int =
+      runCatching {
+            open().getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+          }
+          .getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+
+  private fun applyOrientation(bmp: Bitmap, orientation: Int): Bitmap {
     val matrix = Matrix()
     when (orientation) {
       ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
@@ -1329,6 +1349,10 @@ class PhotoFrameController(
     if (remoteFailStreak >= remoteUrls.size) {
       reresolveOrFallback()
       return
+    }
+    if (settings.shuffle && dir > 0 && remoteIndex == remoteUrls.lastIndex) {
+      remoteUrls = reshuffled(remoteUrls, last = remoteUrls[remoteIndex])
+      remoteIndex = -1
     }
     gen++
     remoteIndex = ((remoteIndex + dir) % remoteUrls.size + remoteUrls.size) % remoteUrls.size
@@ -2205,6 +2229,19 @@ class PhotoFrameController(
     // Below this computed budget the cache isn't worth enabling: every write would evict
     // something at least as warm, so it would only add churn. See [enableMediaCache].
     const val MIN_CACHE_BUDGET_BYTES = 256L * 1024L * 1024L
+
+    /**
+     * A fresh shuffle of [items] for the next pass through the library, so every item is shown
+     * once per pass but passes don't replay the same order. [last] (the item just shown) is kept
+     * off the front so the seam between passes never repeats a photo back to back. Pure.
+     */
+    internal fun <T> reshuffled(items: List<T>, last: T?, random: Random = Random.Default): List<T> {
+      val next = items.shuffled(random).toMutableList()
+      if (next.size > 1 && next[0] == last) {
+        java.util.Collections.swap(next, 0, random.nextInt(1, next.size))
+      }
+      return next
+    }
 
     /**
      * The video URLs from [urls] in playlist order starting *after* [currentIndex] (wrapping),

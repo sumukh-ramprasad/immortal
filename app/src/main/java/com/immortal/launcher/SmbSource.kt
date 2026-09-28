@@ -26,7 +26,7 @@ import java.util.EnumSet
  * Modern SMB 2/3 via smbj (verified against a TrueNAS share negotiating SMB 3.1.1).
  *
  * Stateful: [connect] opens the share for the screensaver session, [listImages] enumerates
- * relative paths (capped), [openStream] reads one file, and [close] tears the connection down.
+ * relative paths, [openStream] reads one file, and [close] tears the connection down.
  * Everything is best-effort — failures surface as null/empty and the caller falls back to the
  * default feed, so the frame is never blank. All calls must run off the main thread.
  */
@@ -58,8 +58,12 @@ class SmbSource(
           }
           .getOrDefault(false)
 
-  /** Recursively list image file paths (share-relative, backslash-separated), capped at [cap]. */
-  fun listImages(cap: Int = 1000): List<String> {
+  /**
+   * Recursively list image file paths (share-relative, backslash-separated). Uncapped by default:
+   * a cap truncates the depth-first walk, so a large library would only ever show its first
+   * folders.
+   */
+  fun listImages(cap: Int = Int.MAX_VALUE): List<String> {
     val sh = share ?: return emptyList()
     val out = ArrayList<String>()
     val stack = ArrayDeque<String>()

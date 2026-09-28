@@ -1,9 +1,11 @@
 package com.immortal.launcher
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.random.Random
 
 /** Pure geometry behind the screensaver's video fill mode (no Context). */
 class PhotoFrameControllerTest {
@@ -66,5 +68,28 @@ class PhotoFrameControllerTest {
   fun prefetchOrder_emptyInputs() {
     assertEquals(emptyList<String>(), PhotoFrameController.prefetchOrder(emptyList(), videos, 0))
     assertEquals(emptyList<String>(), PhotoFrameController.prefetchOrder(urls, emptySet(), 0))
+  }
+
+  // --- reshuffled: the next pass of a non-repeating shuffle ---
+
+  @Test
+  fun reshuffled_keepsEveryItemExactlyOnce() {
+    val items = (0 until 50).toList()
+    repeat(20) { seed ->
+      assertEquals(items, PhotoFrameController.reshuffled(items, last = 49, Random(seed)).sorted())
+    }
+  }
+
+  @Test
+  fun reshuffled_neverRepeatsTheLastItemAcrossTheSeam() {
+    val items = listOf("a", "b", "c")
+    repeat(200) { seed ->
+      assertNotEquals("a", PhotoFrameController.reshuffled(items, last = "a", Random(seed)).first())
+    }
+  }
+
+  @Test
+  fun reshuffled_singleItemIsReturnedAsIs() {
+    assertEquals(listOf("only"), PhotoFrameController.reshuffled(listOf("only"), last = "only"))
   }
 }
