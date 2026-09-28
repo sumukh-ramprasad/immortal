@@ -1,5 +1,8 @@
 # Immortal
 
+> **This fork:** patched screensaver build (full SMB libraries, SMB EXIF rotation,
+> shuffle without repeats). See [FORK.md](FORK.md) for how to download and install it.
+
 A custom home-screen layer for discontinued Meta Portal devices — a play on *Portal*, and on
 keeping it alive after Meta wound the platform down. Immortal turns a Portal into a device you
 own: your launcher, your screensaver, and an app store that installs a curated catalog
