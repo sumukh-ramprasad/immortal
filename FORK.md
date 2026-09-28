@@ -141,15 +141,15 @@ to be saved as a script, so the script execution policy doesn't matter.
 **0. Get adb and connect to the Portal**
 
 This uses `adb` if it's already installed. If not, it downloads Google's platform-tools into
-`C:\platform-tools`, the same package the setup kit uses.
+your user folder (`C:\Users\<you>\platform-tools`), the same package the setup kit uses.
 
 ```powershell
 $adb = (Get-Command adb -ErrorAction SilentlyContinue).Source
 if (-not $adb) {
-  $adb = "C:\platform-tools\adb.exe"
+  $adb = "$HOME\platform-tools\adb.exe"
   if (-not (Test-Path $adb)) {
     Invoke-WebRequest "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile "$env:TEMP\pt.zip"
-    Expand-Archive "$env:TEMP\pt.zip" -DestinationPath "C:\" -Force
+    Expand-Archive "$env:TEMP\pt.zip" -DestinationPath $HOME -Force
   }
 }
 & $adb devices
