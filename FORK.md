@@ -11,10 +11,13 @@ fixes. They're on the `smb-fixes` branch.
 
 ## Getting the APK
 
-Every push runs the **build-apk** workflow, which runs the unit tests and builds a debug APK. Open
-[Actions → build-apk](../../actions/workflows/build-apk.yml), click the latest green run, and
-download **immortal-debug-apk** from the Artifacts section. It's a zip containing
-`app-debug.apk`. You have to be signed in to GitHub, and artifacts are deleted after 90 days.
+Download `immortal-smb-fixes-debug.apk` from the
+[latest release](../../releases/latest). No sign-in needed, and it doesn't expire.
+
+Every push also runs the **build-apk** workflow, which runs the unit tests and builds a fresh
+debug APK. You can get it from [Actions → build-apk](../../actions/workflows/build-apk.yml) under
+Artifacts, but you have to be signed in and artifacts are deleted after 90 days. A CI build is
+signed with a different key than the release APK (see Updating below).
 
 ## Why it installs as a separate app
 
@@ -32,7 +35,7 @@ Connect the Portal over ADB, then:
 
 ```sh
 # 1. Install
-adb install app-debug.apk
+adb install immortal-smb-fixes-debug.apk
 
 # 2. Make it the home screen and the screensaver
 adb shell cmd package set-home-activity com.immortal.launcher.debug/com.immortal.launcher.HomeActivity
@@ -65,7 +68,7 @@ one. To update, uninstall first, which wipes its settings:
 
 ```sh
 adb uninstall com.immortal.launcher.debug
-adb install app-debug.apk
+adb install immortal-smb-fixes-debug.apk
 ```
 
 Then repeat steps 2 to 4.
