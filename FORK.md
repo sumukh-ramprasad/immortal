@@ -61,6 +61,66 @@ adb shell settings put secure screensaver_components com.immortal.launcher/.Phot
 
 Upstream stays installed the whole time, so switching back is instant.
 
+## Remove upstream and keep only the patched build
+
+Provisioning gave upstream a set of permissions and made it the device admin. Move both to the
+patched build before uninstalling upstream. Android won't uninstall an app while it's a device
+admin.
+
+**1. Give the patched build upstream's permissions**
+
+```sh
+P=com.immortal.launcher.debug
+for perm in WRITE_SECURE_SETTINGS READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE READ_LOGS CAMERA RECORD_AUDIO; do
+  adb shell pm grant $P android.permission.$perm
+done
+adb shell appops set $P SYSTEM_ALERT_WINDOW allow
+adb shell appops set $P REQUEST_INSTALL_PACKAGES allow
+adb shell appops set $P GET_USAGE_STATS allow
+adb shell cmd notification allow_listener $P/com.immortal.launcher.MediaNotificationListenerService
+adb shell dpm set-active-admin $P/com.immortal.launcher.AdminReceiver
+```
+
+These are the grants `provision.sh` gives upstream (`grant_perms`). Without them the app store,
+the Home Assistant camera, now-playing, and screen-off may not work.
+
+**2. Remove upstream's device admin**
+
+```sh
+adb shell dpm remove-active-admin com.immortal.launcher/.AdminReceiver
+```
+
+Android usually blocks this from ADB. If it errors, do it on the Portal: open **Settings →
+Security → Device admin apps** (the exact menu name can vary), open the original **Immortal**,
+and tap **Deactivate**. Both apps are called Immortal in that list, so make sure you pick the
+original.
+
+**3. Uninstall upstream**
+
+```sh
+adb shell cmd notification disallow_listener com.immortal.launcher/com.immortal.launcher.MediaNotificationListenerService
+adb uninstall com.immortal.launcher
+```
+
+**4. Check**
+
+```sh
+adb shell cmd package resolve-activity -a android.intent.action.MAIN -c android.intent.category.HOME | grep packageName
+adb shell settings get secure screensaver_components
+adb shell dumpsys device_policy | grep -i admin
+```
+
+All three should show `com.immortal.launcher.debug`. If the home screen check doesn't, run the
+`set-home-activity` command from "Install and switch over" again.
+
+**Things that change without upstream**
+
+- **No automatic updates.** New upstream releases don't reach the patched build. To get them,
+  merge `upstream/main` into this fork and rebuild.
+- **The kit's restore script won't work as-is.** `provision.sh` restore targets
+  `com.immortal.launcher`. To go back to Meta's stock launcher, set `PKG`, `HOME_ACTIVITY` and
+  `DREAM_SERVICE` in `provisioning/config.env` to the `.debug` package first.
+
 ## Updating the patched build
 
 Every CI build signs the APK with a new debug key, so a newer build won't install over an older
@@ -71,4 +131,4 @@ adb uninstall com.immortal.launcher.debug
 adb install immortal-smb-fixes-debug.apk
 ```
 
-Then repeat steps 2 to 4.
+Then repeat steps 2 to 4 of "Install and switch over", and step 1 of "Remove upstream".
