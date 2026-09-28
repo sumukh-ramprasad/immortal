@@ -1,5 +1,8 @@
 # Patched build (this fork)
 
+> **On Windows?** Skip to the [Windows (PowerShell) steps](#windows-powershell). They cover
+> downloading adb, which folder to work from, and every command.
+
 This fork is upstream [Immortal](https://github.com/starbrightlab/immortal) plus three screensaver
 fixes. They're on the `smb-fixes` branch.
 
